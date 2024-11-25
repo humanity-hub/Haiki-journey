@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商店街デジタルアーカイブ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --text-color: #333;
+            --light-gray: #f5f5f5;
+            --border-radius: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        body {
+            background-color: var(--light-gray);
+        }
+
+        .header {
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 1rem;
+            flex-grow: 1;
+            max-width: 600px;
+            margin: 0 1rem;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+        }
+
+        .filter-select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            min-width: 120px;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .view-toggle button {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: var(--light-gray);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .view-toggle button.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .main-content {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .shop-card {
+            background: white;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .shop-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .shop-image {
+            position: relative;
+            height: 200px;
+            overflow: hidden;
+        }
+
+        .shop-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.3s ease;
+        }
+
+        .image-toggle {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            border: none;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .shop-details {
+            padding: 1rem;
+        }
+
+        .shop-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .shop-category {
+            display: inline-block;
+            background: var(--secondary-color);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .shop-info {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .shop-map {
+            height: 200px;
+            margin-top: 1rem;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        .shop-social {
+            margin-top: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .social-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 1.2rem;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 1rem 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .search-container {
+                width: 100%;
+                margin: 0;
+            }
+
+            .shop-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">データを読み込み中...</div>
+
+    <header class="header">
+        <div class="header-content">
+            <h1>商店街デジタルアーカイブ</h1>
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="店舗を検索...">
+                <select class="filter-select" id="categoryFilter">
+                    <option value="">すべて</option>
+                </select>
+            </div>
+            <div class="view-toggle">
+                <button class="active" data-view="grid">
+                    <i class="fas fa-th"></i> グリッド
+                </button>
+                <button data-view="list">
+                    <i class="fas fa-list"></i> リスト
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="shop-grid" id="shopContainer"></div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script>
+        // メインのJavaScriptコード
+        let shops = [];
+        let maps = {};
+
+        async function loadShopData() {
+            try {
+                const response = await fetch('shops.csv');
+                if (!response.ok) throw new Error('CSVファイルの読み込みに失敗しました');
+                
+                const csvText = await response.text();
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        shops = results.data;
+                        initializeCategories();
+                        displayShops();
+                        document.getElementById('loading').style.display = 'none';
+                    },
+                    error: function(error) {
+                        console.error('Parse error:', error);
+                        document.getElementById('loading').textContent = 'データの解析に失敗しました';
+                    }
+                });
+            } catch (error) {
+                console.error('Loading error:', error);
+                document.getElementById('loading').textContent = error.message;
+            }
+        }
+
+        function initializeCategories() {
+            const categories = [...new Set(shops.map(shop => shop.category))];
+            const categoryFilter = document.getElementById('categoryFilter');
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                categoryFilter.appendChild(option);
+            });
+        }
+
+        function createShopCard(shop) {
+            const card = document.createElement('div');
+            card.className = 'shop-card';
+            
+            const mapId = `map-${shop.shop_id}`;
+
+            card.innerHTML = `
+                <div class="shop-image">
+                    <img src="${shop.current_photo}" alt="${shop.name}" id="img-${shop.shop_id}">
+                    <button class="image-toggle" onclick="toggleImage('${shop.shop_id}')">
+                        過去の写真を表示
+                    </button>
+                </div>
+                <div class="shop-details">
+                    <div class="shop-name">${shop.name}</div>
+                    <div class="shop-category">${shop.category}</div>
+                    <div class="shop-info">
+                        <p><i class="fas fa-map-marker-alt"></i> ${shop.address}</p>
+                        <p><i class="fas fa-phone"></i> ${shop.phone}</p>
+                        <p><i class="fas fa-clock"></i> ${shop.hours}</p>
+                        <p><i class="fas fa-info-circle"></i> ${shop.description}</p>
+                    </div>
+                    <div class="shop-map" id="${mapId}"></div>
+                    <div class="shop-social">
+                        ${shop.website ? `
+                            <a href="${shop.website}" class="social-link" target="_blank">
+                                <i class="fas fa-globe"></i>
+                            </a>
+                        ` : ''}
+                        ${shop.sns_instagram ? `
+                            <a href="https://instagram.com/${shop.sns_instagram}" class="social-link" target="_blank">
+                                <i class="fab fa-instagram"></i>
+                            </a>
+                        ` : ''}
+                        ${shop.sns_twitter ? `
+                            <a href="https://twitter.com/${shop.sns_twitter}" class="social-link" target="_blank">
+                                <i class="fab fa-twitter"></i>
+                            </a>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            setTimeout(() => {
+                const map = L.map(mapId).setView([shop.latitude, shop.longitude], 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+                L.marker([shop.latitude, shop.longitude]).addTo(map);
+                maps[shop.shop_id] = map;
+            }, 100);
+
+            return card;
+        }
+
+        function toggleImage(shopId) {
+            const img = document.getElementById(`img-${shopId}`);
+            const btn = img.nextElementSibling;
+            const shop = shops.find(s => s.shop_id === shopId);
+            
+            if (img.src === shop.current_photo) {
+                img.src = shop.past_photo;
+                btn.textContent = '現在の写真を表示';
+            } else {
+                img.src = shop.current_photo;
+                btn.textContent = '過去の写真を表示';
+            }
+        }
+
+        function displayShops() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const selectedCategory = document.getElementById('categoryFilter').value;
+            const container = document.getElementById('shopContainer');
+            
+            Object.values(maps).forEach(map => map.remove());
+            maps = {};
+            container.innerHTML = '';
+
+            const filteredShops = shops.filter(shop => {
+                return shop.name.toLowerCase().includes(searchText) &&
+                       (!selectedCategory || shop.category === selectedCategory);
+            });
+
+            filteredShops.forEach(shop => {
+                container.appendChild(createShopCard(shop));
+            });
+        }
+
+        // イベントリスナーの設定
+        document.getElementById('searchInput').addEventListener('input', displayShops);
+        document.getElementById('categoryFilter').addEventListener('change', displayShops);
+
+        // ビュー切り替え
+        document.querySelectorAll('.view-toggle button').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                const container = document.getElementById('shopContainer');
+                if (this.dataset.view === 'list') {
+                    container.style.gridTemplateColumns = '1fr';
+                } else {
+                    container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(300px, 1fr))';
+                }
+            });
+        });
+
+        // 初期化
+        loadShopData();
+    </script>

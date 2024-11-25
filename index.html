@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>早岐商店街</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        body {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                display: block;
+            }
+        }
+
+        .container {
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        .slideshow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .slideshow-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            object-fit: cover;
+            transition: opacity 2s ease-in-out;
+        }
+
+        .slideshow-image.active {
+            opacity: 0.6;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1.5rem 1rem;
+            z-index: 3;
+            text-align: center;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent);
+        }
+
+        .title {
+            font-size: 2rem;
+            color: rgb(241, 250, 248);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 1.5rem;
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .navigation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            padding: 1rem;
+        }
+
+        .nav-button {
+            width: 140px;
+            height: 140px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .nav-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-button span {
+            font-size: 0.9rem;
+            line-height: 1.2rem;
+            word-wrap: break-word;
+            margin-top: 0.5rem;
+        }
+
+        .language-select {
+            position: fixed;
+            top: 38rem;
+            right: 18rem;
+            z-index: 4;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 0.5rem;
+        }
+
+        .language-select select {
+            font-size: 1rem;
+            background: transparent;
+            border: none;
+            color: white;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .language-select select option {
+            background: #333;
+        }
+
+        
+        .credits-button {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 4;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 0.8rem;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+        }
+
+        .credits-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        @media (min-width: 769px) {
+            .container::before {
+                content: "このページはスマートフォンでのみご利用いただけます。";
+                display: block;
+                text-align: center;
+                font-size: 1.2rem;
+                color: #333;
+                margin-top: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="language-select">
+        <select id="language">
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+        </select>
+    </div>
+    <div class="container">
+        <div class="slideshow">
+            <img src="IMG_4094-2.jpeg" alt="昭和の商店街" class="slideshow-image active">
+            <img src="IMG_2290.jpeg" alt="平成の商店街" class="slideshow-image">
+        </div>
+
+        <header class="header">
+            <h1 class="title" id="title">早岐商店街の旅</h1>
+            <p class="subtitle" id="subtitle">懐かしい記憶と新しい発見の旅へ</p>
+        </header>
+
+        <nav class="navigation">
+            <a href="#" class="nav-button">
+                <i class="fas fa-map-marked-alt"></i>
+                <span id="map">ストリートマップ</span>
+            </a>
+            <a href="#" class="nav-button">
+                <i class="fas fa-star"></i>
+                <span id="spots">おすすめスポット</span>
+            </a>
+            <a href="#" class="nav-button">
+                <i class="fas fa-clock-rotate-left"></i>
+                <span id="album">思い出アルバム</span>
+            </a>
+            <a href="shops.html" class="nav-button">
+                <i class="fas fa-store"></i>
+                <span id="shops">店舗情報</span>
+            </a>
+        </nav>
+
+        <a href="credits.html" class="credits-button" title="クレジット">
+            <i class="fas fa-info-circle"></i>
+        </a>
+    </div>
+
+    <script>
+        const translations = {
+            ja: { 
+                title: "早岐商店街の旅", 
+                subtitle: "懐かしい記憶と新しい発見の旅へ", 
+                map: "ストリートマップ", 
+                spots: "おすすめスポット", 
+                album: "思い出アルバム", 
+                shops: "店舗情報"
+            },
+            en: { 
+                title: "Haiki Journey", 
+                subtitle: "A Trip of Nostalgia and New Discoveries", 
+                map: "Street Map", 
+                spots: "Recommended Spots", 
+                album: "Memory Album", 
+                shops: "Shop Info"
+            },
+            zh: { 
+                title: "早岐商店街之旅", 
+                subtitle: "怀旧与新发现之旅", 
+                map: "街道地图", 
+                spots: "推荐景点", 
+                album: "回忆相册", 
+                shops: "商店信息"
+            },
+            ko: { 
+                title: "사이키 상점가 여행", 
+                subtitle: "추억과 새로운 발견의 여행", 
+                map: "스트리트 맵", 
+                spots: "추천 명소", 
+                album: "추억 앨범", 
+                shops: "상점 정보"
+            }
+        };
+
+        document.getElementById('language').addEventListener('change', (e) => {
+            const lang = e.target.value;
+            const translation = translations[lang];
+
+            document.getElementById('title').textContent = translation.title;
+            document.getElementById('subtitle').textContent = translation.subtitle;
+            document.getElementById('map').textContent = translation.map;
+            document.getElementById('spots').textContent = translation.spots;
+            document.getElementById('album').textContent = translation.album;
+            document.getElementById('shops').textContent = translation.shops;
+        });
+    </script>
+</body>
+</html>
