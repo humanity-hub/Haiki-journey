@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>早岐商店街の思い出アルバム</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --primary-light: #818CF8;
+            --background-light: #F3F4F6;
+            --text-dark: #1F2937;
+            --text-light: #6B7280;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        body {
+            background: var(--background-light);
+            color: var(--text-dark);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .header {
+            text-align: center;
+            margin: 2rem 0 3rem;
+            padding: 2rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            background: linear-gradient(45deg, var(--primary-color), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+        }
+
+        /* フローティングアップロードボタン */
+        .floating-upload-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .floating-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            background: var(--primary-light);
+        }
+
+        .floating-upload-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* アップロードモーダル */
+        .upload-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+        }
+
+        .upload-modal.active {
+            display: flex;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--text-dark);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            z-index: 1002;
+        }
+
+        /* 年代選択 */
+        .era-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1rem 0 2rem;
+        }
+
+        .era-button {
+            background: white;
+            color: var(--text-dark);
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .era-button:hover {
+            background: var(--background-light);
+        }
+
+        .era-button.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* フォームスタイル */
+        .upload-form {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #E5E7EB;
+            border-radius: 0.5rem;
+            background: white;
+            color: var(--text-dark);
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        /* ギャラリー */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            padding: 1rem 0;
+        }
+
+        .gallery-item {
+            background: white;
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .gallery-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .gallery-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .gallery-info {
+            padding: 1.5rem;
+        }
+
+        .gallery-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+
+        .gallery-description {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .gallery-meta {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-light);
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        /* ローディング */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: none;
+            z-index: 1002;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 0.5rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .gallery {
+                grid-template-columns: 1fr;
+            }
+
+            .floating-upload-btn {
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>早岐商店街の思い出</h1>
+        </header>
+
+        <nav class="era-nav">
+            <button class="era-button" data-era="edo">江戸時代</button>
+            <button class="era-button" data-era="meiji">明治時代</button>
+            <button class="era-button" data-era="postwar">戦後</button>
+            <button class="era-button active" data-era="present">現代</button>
+        </nav>
+
+        <div class="gallery" id="photo-gallery"></div>
+    </div>
+
+    <!-- フローティングアップロードボタン -->
+    <button class="floating-upload-btn" id="uploadBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+        </svg>
+    </button>
+
+    <!-- アップロードモーダル -->
+    <div class="upload-modal" id="uploadModal">
+        <form id="upload-form" class="upload-form">
+            <button type="button" class="modal-close" id="modalClose">&times;</button>
+            <h2 style="margin-bottom: 1.5rem; color: var(--text-dark);">思い出をアップロード</h2>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>画像</label>
+                    <input type="file" accept="image/*" id="image-input" required>
+                    <div class="image-preview" id="image-preview"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>画像名</label>
+                    <input type="text" id="title-input" placeholder="画像の名前を入力" required>
+                </div>
+
+                <div class="form-group">
+                    <label>説明</label>
+                    <textarea id="description-input" rows="3" placeholder="この写真についての説明を入力" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>場所</label>
+                    <input type="text" id="location-input" placeholder="撮影場所を入力" required>
+                </div>
+
+                <div class="form-group">
+                    <label>撮影者</label>
+                    <input type="text" id="photographer-input" placeholder="撮影者の名前を入力" required>
+                </div>
+
+                <div class="form-group">
+                    <label>年代</label>
+                    <select id="era-select" required>
+                        <option value="edo">江戸時代</option>
+                        <option value="meiji">明治時代</option>
+                        <option value="postwar">戦後</option>
+                        <option value="present">現代</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="upload-button">アップロード</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="loading">アップロード中...</div>
+
+    <script>
+        // Firebase設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyCF5xc680ZnzzjMK-r_FE3LEzqcTEbC3K4",
+  authDomain: "haiki-8b205.firebaseapp.com",
+  projectId: "haiki-8b205",
+  storageBucket: "haiki-8b205.firebasestorage.app",
+  messagingSenderId: "1030091508230",
+  appId: "1:1030091508230:web:84cfbff0350b3ef6c55187",
+        };
+
+        // Firebase初期化
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // モーダル制御
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadModal = document.getElementById('uploadModal');
+        const modalClose = document.getElementById('modalClose');
+
+        uploadBtn.addEventListener('click', () => {
+            uploadModal.classList.add('active');
+        });
+
+        modalClose.addEventListener('click', () => {
+            uploadModal.classList.remove('active');
+            resetUploadForm();
+        });
+
+        uploadModal.addEventListener('click', (e) => {
+            if (e.target === uploadModal) {
+                uploadModal.classList.remove('active');
+                resetUploadForm();
+            }
+        });
+
+        // 画像プレビュー
+        const imageInput = document.getElementById('image-input');
+        const imagePreview = document.getElementById('image-preview');
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.innerHTML = `<img src="${e.target.result}" alt="プレビュー">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // フォーム送信
+        const uploadForm = document.getElementById('upload-form');
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const loading = document.querySelector('.loading');
+            loading.style.display = 'block';
+
+            try {
+                const file = imageInput.files[0];
+                const era = document.getElementById('era-select').value;
+                
+                // Storageにアップロード
+                const storageRef = storage.ref(`images/${Date.now()}_${file.name}`);
+                const snapshot = await storageRef.put(file);
+                const imageUrl = await snapshot.ref.getDownloadURL();
+
+                // Firestoreにデータを保存
+                await db.collection('photos').add({
+                    title: document.getElementById('title-input').value,
+                    description: document.getElementById('description-input').value,
+                    location: document.getElementById('location-input').value,
+                    photographer: document.getElementById('photographer-input').value,
+                    imageUrl: imageUrl,
+                    era: era,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                loading.style.display = 'none';
+                alert('アップロード完了！');
+                uploadModal.classList.remove('active');
+                resetUploadForm();
+                loadGallery(era);
+            } catch (error) {
+                loading.style.display = 'none';
+                alert('エラーが発生しました: ' + error.message);
+            }
+        });
+
+        // ギャラリー読み込み
+        async function loadGallery(era) {
+            const gallery = document.getElementById('photo-gallery');
+            gallery.innerHTML = '';
+
+            try {
+                const snapshot = await db.collection('photos')
+                    .where('era', '==', era)
+                    .orderBy('timestamp', 'desc')
+                    .get();
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'gallery-item';
+                    item.innerHTML = `
+                        <img src="${data.imageUrl}" alt="${data.title}" class="gallery-image">
+                        <div class="gallery-info">
+                            <h3 class="gallery-title">${data.title}</h3>
+                            <p class="gallery-description">${data.description}</p>
+                            <div class="gallery-meta">
+                                <span>撮影場所: ${data.location}</span>
+                                <span>撮影者: ${data.photographer}</span>
+                            </div>
+                        </div>
+                    `;
+                    gallery.appendChild(item);
+                });
+
+                if (snapshot.empty) {
+                    gallery.innerHTML = '<p style="text-align: center; color: var(--text-light);">この年代の写真はまだありません</p>';
+                }
+            } catch (error) {
+                console.error('Error loading gallery:', error);
+                gallery.innerHTML = '<p style="text-align: center; color: var(--text-light);">写真の読み込みに失敗しました</p>';
+            }
+        }
+
+        // 年代選択の制御
+        document.querySelectorAll('.era-button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.era-button').forEach(b => b.classList.remove('active'));
+                button.classList.add('active');
+                loadGallery(button.dataset.era);
+            });
+        });
+
+        // フォームリセット
+        function resetUploadForm() {
+            uploadForm.reset();
+            imagePreview.innerHTML = '';
+        }
+
+        // 初期表示
+        loadGallery('present');
+    </script>
+</body>
+</html>

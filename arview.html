@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>早岐茶市場 AR Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ar.js/2.2.2/aframe-ar.js"></script>
+    <style>
+        .info-bubble {
+            position: fixed;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 80%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+
+        .distance-indicator {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+
+        .arrow-indicator {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            background: red;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            transform-origin: center center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body style="margin: 0;">
+    <div id="distance" class="distance-indicator">読み込み中...</div>
+    <div id="arrow" class="arrow-indicator"></div>
+    <div id="info" class="info-bubble">
+        <h3>早岐茶市場</h3>
+        <p>この場所は、かつて佐世保の茶取引の中心地でした。</p>
+        <p>明治時代から続く歴史ある市場で、佐世保の発展に大きく貢献しました。</p>
+    </div>
+
+    <a-scene vr-mode-ui="enabled: false" embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;">
+        <a-camera gps-camera rotation-reader></a-camera>
+        <a-entity
+            gps-entity-place="latitude: 33.13639; longitude: 129.79578"
+            scale="1 1 1"
+            position="0 0 0">
+        </a-entity>
+    </a-scene>
+
+    <script>
+        const TARGET = {
+            lat: 33.13639,
+            lng: 129.79578
+        };
+        const MAX_DISTANCE = 1000; // 1km
+
+        let watchId = null;
+        let lastHeading = 0;
+
+        // 位置情報の精度を高めるための設定
+        const geoOptions = {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
+        };
+
+        // 距離計算関数
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // 地球の半径（メートル）
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c;
+        }
+
+        // 方角計算関数
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1)*Math.sin(φ2) -
+                    Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+            const θ = Math.atan2(y, x);
+
+            return (θ*180/Math.PI + 360) % 360;
+        }
+
+        // 位置情報の更新
+        function updatePosition(position) {
+            const distance = calculateDistance(
+                position.coords.latitude,
+                position.coords.longitude,
+                TARGET.lat,
+                TARGET.lng
+            );
+
+            const bearing = calculateBearing(
+                position.coords.latitude,
+                position.coords.longitude,
+                TARGET.lat,
+                TARGET.lng
+            );
+
+            // 距離表示の更新
+            const distanceElement = document.getElementById('distance');
+            if (distance <= MAX_DISTANCE) {
+                distanceElement.textContent = `目的地まで約${Math.round(distance)}m`;
+                document.getElementById('info').style.display = 'block';
+            } else {
+                distanceElement.textContent = '範囲外です（1km以上離れています）';
+                document.getElementById('info').style.display = 'none';
+            }
+
+            // 矢印の更新
+            const arrow = document.getElementById('arrow');
+            arrow.style.transform = `rotate(${bearing - lastHeading}deg)`;
+        }
+
+        // コンパスの向きの更新
+        function updateHeading(event) {
+            if (event.webkitCompassHeading) {
+                lastHeading = event.webkitCompassHeading;
+            } else {
+                lastHeading = 360 - event.alpha;
+            }
+        }
+
+        // 位置情報の監視開始
+        if ("geolocation" in navigator) {
+            watchId = navigator.geolocation.watchPosition(
+                updatePosition,
+                null,
+                geoOptions
+            );
+        }
+
+        // デバイスの向きの監視
+        window.addEventListener('deviceorientation', updateHeading, true);
+
+        // エラーハンドリング
+        window.addEventListener('error', function(e) {
+            console.error('Error:', e.message);
+        });
+    </script>
+</body>
+</html>
