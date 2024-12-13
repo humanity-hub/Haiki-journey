@@ -18,7 +18,6 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
             touch-action: none;
-            -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
             background: #000;
@@ -32,85 +31,36 @@
             transition: opacity 0.3s ease;
         }
 
-        .marker-line {
-            position: absolute;
-            width: 2px;
-            background: rgba(255, 255, 255, 0.8);
-            transform-origin: top center;
-        }
-
-        .marker-dot {
-            width: 12px;
-            height: 12px;
-            background: #FF4444;
-            border: 2px solid white;
-            border-radius: 50%;
-            position: absolute;
-            top: 0;
-            left: -5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
         .marker-label {
-            position: absolute;
+            position: relative;
             background: rgba(255, 255, 255, 0.95);
-            padding: 8px 12px;
+            padding: 12px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            font-size: 14px;
-            line-height: 1.4;
-            max-width: 200px;
-            width: max-content;
-            transform: translateX(-50%);
             backdrop-filter: blur(4px);
         }
 
-        .marker-label h3 {
+        .marker-title {
+            font-weight: 600;
             font-size: 16px;
             margin-bottom: 4px;
             color: #333;
-            font-weight: 600;
         }
 
-        .marker-label p {
+        .marker-description {
             font-size: 13px;
+            line-height: 1.4;
             color: #666;
-            margin: 0;
             margin-bottom: 4px;
         }
 
-        .distance-badge {
-            background: rgba(0, 122, 255, 0.1);
+        .marker-distance {
+            font-size: 13px;
             color: #007AFF;
+            display: inline-block;
+            background: rgba(0, 122, 255, 0.1);
             padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-            display: inline-block;
-        }
-
-        .compass-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            backdrop-filter: blur(4px);
-        }
-
-        .compass-arrow {
-            width: 30px;
-            height: 30px;
-            background: #FF4444;
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-            transform-origin: center center;
-            transition: transform 0.2s ease;
         }
 
         .status-message {
@@ -124,44 +74,17 @@
             border-radius: 20px;
             font-size: 14px;
             z-index: 1000;
-            backdrop-filter: blur(4px);
-            white-space: nowrap;
-        }
-
-        .permission-button {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #007AFF;
-            color: white;
-            padding: 16px 32px;
-            border-radius: 12px;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-            z-index: 2000;
-            display: none;
         }
     </style>
 </head>
 <body>
-    <button id="permission-button" class="permission-button">アプリを開始</button>
-    <div id="status" class="status-message">初期化中...</div>
-    <div class="compass-container">
-        <div id="compass" class="compass-arrow"></div>
-    </div>
+    <div id="status" class="status-message">カメラを対象に向けてください</div>
 
     <a-scene vr-mode-ui="enabled: false" 
              embedded 
-             arjs="sourceType: webcam; 
-                   debugUIEnabled: false; 
-                   detectionMode: mono_and_matrix;
-                   sourceWidth: 1280;
-                   sourceHeight: 960;
-                   displayWidth: 1280;
-                   displayHeight: 960;">
+             arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;">
         <a-camera gps-camera rotation-reader></a-camera>
+        <a-entity id="places"></a-entity>
     </a-scene>
 
     <script>
@@ -175,69 +98,40 @@
             },
             {
                 id: 'station',
+                name: '早岐駅',
+                lat: 33.13750,
+                lng: 129.79472,
+                description: '佐世保線の重要な駅の一つで、茶市場へのアクセスポイントとして栄えました。'
+            },
+            {
+                id: 'station',
                 name: '保育園',
                 lat: 32.92524,
                 lng: 129.97475,
                 description: '佐世保線の重要な駅の一つで、茶市場へのアクセスポイントとして栄えました。'
             },
-            
+            {
+                id: 'station',
+                name: '販売機跡',
+                lat: 32.92489,
+                lng: 129.97518,
+                description: '佐世保線の重要な駅の一つで、茶市場へのアクセスポイントとして栄えました。'
+            }
         ];
 
-        const MAX_DISTANCE = 200; // 200m
-        const VIEW_ANGLE = 30; // 視野角の半分
+        const MAX_DISTANCE = 200;
+        const VIEW_ANGLE = 30;
         let lastHeading = 0;
         const markers = new Map();
-        let isInitialized = false;
-
-        // デバウンス関数
-        function debounce(func, wait) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
-        }
-
-        function updateStatus(message) {
-            document.getElementById('status').textContent = message;
-        }
-
-        async function requestPermissions() {
-            try {
-                // カメラの許可を要求
-                await navigator.mediaDevices.getUserMedia({ video: true });
-
-                // 位置情報の許可を要求
-                await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 5000
-                    });
-                });
-
-                // iOSデバイスの向きの許可を要求
-                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    await DeviceOrientationEvent.requestPermission();
-                }
-
-                return true;
-            } catch (error) {
-                console.error('権限の取得に失敗しました:', error);
-                updateStatus('必要な権限が付与されていません');
-                return false;
-            }
-        }
 
         function createMarkerElement(location) {
             const marker = document.createElement('div');
             marker.className = 'location-marker';
             marker.innerHTML = `
-                <div class="marker-line"></div>
-                <div class="marker-dot"></div>
                 <div class="marker-label">
-                    <h3>${location.name}</h3>
-                    <p>${location.description}</p>
-                    <span class="distance-badge"></span>
+                    <div class="marker-title">${location.name}</div>
+                    <div class="marker-description">${location.description}</div>
+                    <div class="marker-distance"></div>
                 </div>
             `;
             document.body.appendChild(marker);
@@ -245,43 +139,36 @@
         }
 
         function updateMarkerPosition(marker, x, y, distance, bearing) {
-            const LINE_HEIGHT = 80;
-            const LABEL_OFFSET = 20;
-            
-            marker.style.left = `${x}px`;
-            marker.style.top = `${y}px`;
-
-            const line = marker.querySelector('.marker-line');
-            line.style.height = `${LINE_HEIGHT}px`;
-
-            const label = marker.querySelector('.marker-label');
-            label.style.top = `${LINE_HEIGHT + LABEL_OFFSET}px`;
-
-            const distanceBadge = marker.querySelector('.distance-badge');
-            distanceBadge.textContent = `約${Math.round(distance)}m`;
-
-            // 方角に応じてマーカーの表示/非表示を制御
+            marker.style.transform = `translate(${x}px, ${y}px)`;
             const angleDiff = Math.abs(((bearing - lastHeading + 540) % 360) - 180);
             marker.style.opacity = angleDiff <= VIEW_ANGLE ? '1' : '0';
+            marker.querySelector('.marker-distance').textContent = `約${Math.round(distance)}m`;
         }
 
-        function calculateScreenPosition(lat, lng, currentLat, currentLng, heading) {
-            const bearing = calculateBearing(currentLat, currentLng, lat, lng);
-            const angle = (bearing - heading + 360) % 360;
-            
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
-            
-            const x = screenWidth / 2 + Math.sin((angle * Math.PI) / 180) * (screenWidth / 2);
-            const y = screenHeight / 2;
+        function calculatePosition(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
 
-            return { x, y, bearing };
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distance = R * c;
+
+            const y = Math.sin(Δλ) * Math.cos(φ2);
+            const x = Math.cos(φ1)*Math.sin(φ2) -
+                    Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+            const bearing = (Math.atan2(y, x) * 180/Math.PI + 360) % 360;
+
+            return { distance, bearing };
         }
 
-        // 位置情報の更新をデバウンス
-        const debouncedUpdatePosition = debounce((position) => {
+        function updatePositions(position) {
             LOCATIONS.forEach(location => {
-                const distance = calculateDistance(
+                const { distance, bearing } = calculatePosition(
                     position.coords.latitude,
                     position.coords.longitude,
                     location.lat,
@@ -293,91 +180,49 @@
                 }
 
                 const marker = markers.get(location.id);
-                
                 if (distance <= MAX_DISTANCE) {
-                    const { x, y, bearing } = calculateScreenPosition(
-                        location.lat,
-                        location.lng,
-                        position.coords.latitude,
-                        position.coords.longitude,
-                        lastHeading
-                    );
+                    const screenWidth = window.innerWidth;
+                    const screenHeight = window.innerHeight;
+                    const angle = (bearing - lastHeading + 360) % 360;
+                    const x = screenWidth/2 + Math.sin(angle * Math.PI/180) * screenWidth/2;
+                    const y = screenHeight/2;
                     
                     updateMarkerPosition(marker, x, y, distance, bearing);
-                    if (!isInitialized) {
-                        updateStatus('カメラを対象に向けてください');
-                        isInitialized = true;
-                    }
                 } else {
                     marker.style.opacity = '0';
                 }
             });
-        }, 100);
-
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000;
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                    Math.cos(φ1) * Math.cos(φ2) *
-                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-            return R * c;
         }
 
-        function calculateBearing(lat1, lon1, lat2, lon2) {
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-
-            const y = Math.sin(Δλ) * Math.cos(φ2);
-            const x = Math.cos(φ1)*Math.sin(φ2) -
-                    Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
-            const θ = Math.atan2(y, x);
-
-            return (θ*180/Math.PI + 360) % 360;
+        function handleOrientation(event) {
+            lastHeading = event.webkitCompassHeading || (360 - event.alpha) || 0;
         }
 
-        function updateHeading(event) {
-            if (event.webkitCompassHeading) {
-                lastHeading = event.webkitCompassHeading;
-            } else if (event.alpha) {
-                lastHeading = 360 - event.alpha;
-            }
-            document.getElementById('compass').style.transform = `rotate(${lastHeading}deg)`;
-        }
-
-        window.onload = () => {
-            const permissionButton = document.getElementById('permission-button');
-            permissionButton.style.display = 'block';
-            
-            permissionButton.addEventListener('click', async () => {
-                permissionButton.style.display = 'none';
-                updateStatus('権限を確認中...');
-
-                if (await requestPermissions()) {
-                    updateStatus('位置情報を取得中...');
-                    navigator.geolocation.watchPosition(
-                        debouncedUpdatePosition,
-                        (error) => {
-                            console.error('位置情報のエラー:', error);
-                            updateStatus('位置情報の取得に失敗しました');
-                        },
-                        {
-                            enableHighAccuracy: true,
-                            maximumAge: 0,
-                            timeout: 5000
+        window.addEventListener('load', () => {
+            // デバイスの向きの取得を開始
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
                         }
-                    );
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
 
-                    window.addEventListener('deviceorientation', updateHeading, true);
+            // 位置情報の取得を開始
+            navigator.geolocation.watchPosition(
+                updatePositions,
+                console.error,
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
                 }
-            });
-        };
+            );
+        });
     </script>
 </body>
 </html>
