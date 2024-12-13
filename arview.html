@@ -123,7 +123,7 @@
             }
         ];
 
-        const MAX_DISTANCE = 100; // 100m
+        const MAX_DISTANCE = 200; // 200m
         const VIEW_ANGLE = 30; // カメラの視野角の半分（度）
         let lastHeading = 0;
         const markers = new Map();
@@ -251,7 +251,7 @@
 
             // ステータス表示の更新
             if (locationsInRange === 0) {
-                statusElement.textContent = '周辺100m以内に表示対象はありません';
+                statusElement.textContent = '周辺200m以内に表示対象はありません';
             } else if (locationsVisible === 0) {
                 statusElement.textContent = 'カメラを対象に向けてください';
             } else {
