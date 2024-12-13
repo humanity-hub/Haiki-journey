@@ -33,7 +33,6 @@
             z-index: 1000;
         }
 
-        /* マーカーのスタイル更新 */
         .location-marker {
             position: absolute;
             pointer-events: none;
@@ -41,39 +40,74 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             transform-origin: center top;
             will-change: transform, opacity;
-            width: 85vw; /* スマホ画面幅に合わせて調整 */
+            width: 85vw;
             max-width: 320px;
         }
 
         .marker-line {
             position: absolute;
             width: 2px;
-            background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0.3));
+            background: none;
             transform-origin: top center;
             left: 50%;
-            margin-left: -1px;
             top: 0;
-            height: 60px; /* スマホ向けに短く */
+            height: 60px;
+            margin-left: -1px;
+            overflow: visible;
+        }
+
+        .marker-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: calc(100% - 10px);
+            background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0.3));
+        }
+
+        .marker-line::after {
+            content: '';
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: rgba(255,255,255,0.9);
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
         }
 
         .marker-dot {
             position: absolute;
-            width: 10px;
-            height: 10px;
+            width: 16px;
+            height: 16px;
             background: #FF4444;
             border: 2px solid white;
             border-radius: 50%;
             left: 50%;
             top: 0;
-            margin-left: -5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            margin-left: -8px;
+            box-shadow: 0 0 0 4px rgba(255,68,68,0.3);
             animation: pulse 2s infinite;
         }
 
-        /* スタートボタンのモバイル最適化 */
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255,68,68,0.6);
+            }
+            70% {
+                box-shadow: 0 0 0 15px rgba(255,68,68,0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255,68,68,0);
+            }
+        }
+
         .start-button {
             position: fixed;
-            bottom: 32px; /* 下部に配置 */
+            bottom: 32px;
             left: 50%;
             transform: translateX(-50%);
             background: #007AFF;
@@ -95,7 +129,6 @@
             background: #0066DD;
         }
 
-        /* マーカーラベルのモバイル最適化 */
         .marker-label {
             background: rgba(255, 255, 255, 0.98);
             padding: 16px;
@@ -108,6 +141,21 @@
             transform: translateX(-50%);
             top: 70px;
             left: 50%;
+            position: relative;
+        }
+
+        .marker-label::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 16px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.98);
+            border-left: 1px solid rgba(255, 255, 255, 0.3);
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            transform: translateX(-50%) rotate(45deg);
         }
 
         .marker-title {
@@ -115,6 +163,18 @@
             font-size: 16px;
             margin-bottom: 8px;
             color: #000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .marker-title::before {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background: #007AFF;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/%3E%3C/svg%3E") no-repeat center;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/%3E%3C/svg%3E") no-repeat center;
         }
 
         .marker-description {
@@ -124,7 +184,52 @@
             margin-bottom: 10px;
         }
 
-        /* ステータス表示のモバイル最適化 */
+        .marker-distance {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #007AFF;
+            background: rgba(0, 122, 255, 0.08);
+            padding: 6px 12px;
+            border-radius: 8px;
+        }
+
+        .marker-distance::before {
+            content: '';
+            width: 16px;
+            height: 16px;
+            background: #007AFF;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h2v4h2V8h2v4h2V8h2v4h2V8h2v4h2V8h2v8z'/%3E%3C/svg%3E") no-repeat center;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h2v4h2V8h2v4h2V8h2v4h2V8h2v4h2V8h2v8z'/%3E%3C/svg%3E") no-repeat center;
+        }
+
+        .compass-container {
+            position: fixed;
+            bottom: 24px;
+            right: 16px;
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+            border-radius: 50%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .compass-arrow {
+            width: 20px;
+            height: 20px;
+            background: #007AFF;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform;
+        }
+
         .status-container {
             position: fixed;
             top: 16px;
@@ -150,35 +255,8 @@
             text-align: center;
         }
 
-        /* コンパスのモバイル最適化 */
-        .compass-container {
-            position: fixed;
-            top: auto;
-            bottom: 24px;
-            right: 16px;
-            width: 48px;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-            border-radius: 50%;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .compass-arrow {
-            width: 20px;
-            height: 20px;
-            background: #007AFF;
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-        }
-
-        /* 距離表示のモバイル最適化 */
         .distance-indicator {
             position: fixed;
-            top: auto;
             bottom: 24px;
             left: 16px;
             background: rgba(255, 255, 255, 0.98);
@@ -187,9 +265,11 @@
             font-size: 14px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
             z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        /* 対象なしメッセージのモバイル最適化 */
         .no-targets {
             position: fixed;
             top: 50%;
@@ -202,6 +282,18 @@
             text-align: center;
             width: 85vw;
             max-width: 320px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+            display: none;
+            z-index: 1000;
+        }
+
+        a-scene {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
         }
 
         @media (max-height: 600px) {
@@ -216,7 +308,6 @@
     </style>
 </head>
 <body>
-    <!-- 以下のHTMLは同じ -->
     <div class="ar-overlay" id="overlay"></div>
     <div class="compass-container">
         <div id="compass" class="compass-arrow"></div>
@@ -243,6 +334,7 @@
         <a-camera gps-camera rotation-reader></a-camera>
         <a-entity id="places"></a-entity>
     </a-scene>
+
     <script>
         const LOCATIONS = [
             {
@@ -431,7 +523,6 @@
             };
             document.body.appendChild(startButton);
 
-            // 初期状態ではARシーンを非表示に
             document.querySelector('a-scene').style.display = 'none';
 
             navigator.geolocation.watchPosition(
@@ -448,12 +539,10 @@
                 }
             );
 
-            // 画面サイズ変更時のマーカー位置更新
             window.addEventListener('resize', () => {
                 requestAnimationFrame(updateMarkers);
             });
 
-            // エラーハンドリング
             window.addEventListener('error', error => {
                 console.error('エラーが発生しました:', error);
                 document.getElementById('status').textContent = 
