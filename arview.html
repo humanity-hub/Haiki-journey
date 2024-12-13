@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ar.js/2.2.2/aframe-ar.js"></script>
     <style>
+        /* 前回と同じスタイル定義... */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -26,6 +27,7 @@
             position: absolute;
             pointer-events: none;
             z-index: 1000;
+            transition: opacity 0.3s ease;
         }
 
         .marker-line {
@@ -82,29 +84,7 @@
             display: inline-block;
         }
 
-        .compass-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .compass-arrow {
-            width: 30px;
-            height: 30px;
-            background: red;
-            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-            transform-origin: center center;
-        }
-
-        .out-of-range {
+        .status-indicator {
             position: fixed;
             bottom: 20px;
             left: 50%;
@@ -114,16 +94,12 @@
             padding: 10px 20px;
             border-radius: 20px;
             font-size: 14px;
-            display: none;
             z-index: 1000;
         }
     </style>
 </head>
 <body>
-    <div id="out-of-range" class="out-of-range">範囲外です（1km以上離れています）</div>
-    <div class="compass-container">
-        <div id="compass" class="compass-arrow"></div>
-    </div>
+    <div id="status" class="status-indicator">初期化中...</div>
 
     <a-scene vr-mode-ui="enabled: false" embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;">
         <a-camera gps-camera rotation-reader></a-camera>
@@ -147,7 +123,8 @@
             }
         ];
 
-        const MAX_DISTANCE = 1000; // 1km
+        const MAX_DISTANCE = 100; // 100m
+        const VIEW_ANGLE = 30; // カメラの視野角の半分（度）
         let lastHeading = 0;
         const markers = new Map();
 
@@ -167,9 +144,12 @@
             return marker;
         }
 
-        function updateMarkerPosition(marker, x, y, distance) {
-            const LINE_HEIGHT = 80; // 線の長さ
-            const LABEL_OFFSET = 20; // ラベルのオフセット
+        function updateMarkerPosition(marker, x, y, distance, isVisible) {
+            const LINE_HEIGHT = 80;
+            const LABEL_OFFSET = 20;
+
+            marker.style.opacity = isVisible ? '1' : '0';
+            if (!isVisible) return;
 
             marker.style.left = `${x}px`;
             marker.style.top = `${y}px`;
@@ -188,15 +168,19 @@
             const bearing = calculateBearing(currentLat, currentLng, lat, lng);
             const angle = (bearing - heading + 360) % 360;
             
-            // 画面中央からの相対位置を計算
             const screenWidth = window.innerWidth;
             const screenHeight = window.innerHeight;
-            const fov = 60; // 視野角
             
             const x = screenWidth / 2 + Math.sin((angle * Math.PI) / 180) * (screenWidth / 2);
             const y = screenHeight / 2;
 
-            return { x, y };
+            return { x, y, angle };
+        }
+
+        function isInViewRange(angle) {
+            // 正面から指定した角度以内かどうかをチェック
+            const normalizedAngle = (angle + 360) % 360;
+            return normalizedAngle <= VIEW_ANGLE || normalizedAngle >= (360 - VIEW_ANGLE);
         }
 
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -228,8 +212,9 @@
         }
 
         function updatePosition(position) {
-            const outOfRangeElement = document.getElementById('out-of-range');
-            let anyInRange = false;
+            const statusElement = document.getElementById('status');
+            let locationsInRange = 0;
+            let locationsVisible = 0;
 
             LOCATIONS.forEach(location => {
                 const distance = calculateDistance(
@@ -246,8 +231,8 @@
                 const marker = markers.get(location.id);
                 
                 if (distance <= MAX_DISTANCE) {
-                    anyInRange = true;
-                    const { x, y } = calculateScreenPosition(
+                    locationsInRange++;
+                    const { x, y, angle } = calculateScreenPosition(
                         location.lat,
                         location.lng,
                         position.coords.latitude,
@@ -255,14 +240,23 @@
                         lastHeading
                     );
                     
-                    updateMarkerPosition(marker, x, y, distance);
-                    marker.style.display = 'block';
+                    const isVisible = isInViewRange(angle);
+                    if (isVisible) locationsVisible++;
+                    
+                    updateMarkerPosition(marker, x, y, distance, isVisible);
                 } else {
-                    marker.style.display = 'none';
+                    marker.style.opacity = '0';
                 }
             });
 
-            outOfRangeElement.style.display = anyInRange ? 'none' : 'block';
+            // ステータス表示の更新
+            if (locationsInRange === 0) {
+                statusElement.textContent = '周辺100m以内に表示対象はありません';
+            } else if (locationsVisible === 0) {
+                statusElement.textContent = 'カメラを対象に向けてください';
+            } else {
+                statusElement.textContent = `${locationsVisible}件の対象を表示中`;
+            }
         }
 
         function updateHeading(event) {
@@ -271,10 +265,6 @@
             } else {
                 lastHeading = 360 - event.alpha;
             }
-
-            // コンパスの更新
-            const compass = document.getElementById('compass');
-            compass.style.transform = `rotate(${lastHeading}deg)`;
         }
 
         window.addEventListener('load', () => {
@@ -288,6 +278,8 @@
                         timeout: 5000
                     }
                 );
+            } else {
+                document.getElementById('status').textContent = '位置情報が利用できません';
             }
         });
 
