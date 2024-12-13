@@ -18,7 +18,7 @@
             z-index: 1000;
         }
 
-        .distance-indicator {
+        .distance-list {
             position: fixed;
             top: 20px;
             left: 50%;
@@ -42,31 +42,51 @@
     </style>
 </head>
 <body style="margin: 0;">
-    <div id="distance" class="distance-indicator">読み込み中...</div>
+    <div id="distances" class="distance-list">読み込み中...</div>
     <div id="arrow" class="arrow-indicator"></div>
-    <div id="info" class="info-bubble">
-        <h3>早岐茶市場</h3>
-        <p>この場所は、かつて佐世保の茶取引の中心地でした。</p>
-        <p>明治時代から続く歴史ある市場で、佐世保の発展に大きく貢献しました。</p>
-    </div>
+    
+    <!-- 情報バブルのテンプレート -->
+    <template id="info-bubble-template">
+        <div class="info-bubble">
+            <h3></h3>
+            <p class="description"></p>
+        </div>
+    </template>
 
     <a-scene vr-mode-ui="enabled: false" embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix;">
         <a-camera gps-camera rotation-reader></a-camera>
-        <a-entity
-            gps-entity-place="latitude: 33.13639; longitude: 129.79578"
-            scale="1 1 1"
-            position="0 0 0">
-        </a-entity>
+        <!-- 位置情報のマーカーはJavaScriptで動的に追加されます -->
     </a-scene>
 
     <script>
-        const TARGET = {
-            lat: 33.13639,
-            lng: 129.79578
-        };
-        const MAX_DISTANCE = 1000; // 1km
+        // 複数の位置情報を定義
+        const LOCATIONS = [
+            {
+                id: 'market',
+                name: '早岐茶市場',
+                lat: 33.13639,
+                lng: 129.79578,
+                description: 'この場所は、かつて佐世保の茶取引の中心地でした。明治時代から続く歴史ある市場で、佐世保の発展に大きく貢献しました。'
+            },
+            {
+                id: 'station',
+                name: '寺尾屋さん跡',
+                lat: 32.92489,
+                lng: 129.97509,
+                description: '佐世保線の重要な駅の一つで、茶市場へのアクセスポイントとして栄えました。'
+            },
+            {
+                id: 'station',
+                name: '保育園',
+                lat: 32.92517,
+                lng: 129.97469,
+                description: '佐世保線の重要な駅の一つで、茶市場へのアクセスポイントとして栄えました。'
+            }
 
-        let watchId = null;
+            // 必要に応じて他の位置情報を追加できます
+        ];
+
+        const MAX_DISTANCE = 1000; // 1km
         let lastHeading = 0;
 
         // 位置情報の精度を高めるための設定
@@ -76,9 +96,29 @@
             timeout: 5000
         };
 
+        // ARマーカーの初期化
+        function initializeARMarkers() {
+            const scene = document.querySelector('a-scene');
+            LOCATIONS.forEach(location => {
+                const entity = document.createElement('a-entity');
+                entity.setAttribute('gps-entity-place', `latitude: ${location.lat}; longitude: ${location.lng}`);
+                entity.setAttribute('scale', '1 1 1');
+                entity.setAttribute('id', location.id);
+                scene.appendChild(entity);
+
+                // 情報バブルの作成
+                const template = document.getElementById('info-bubble-template');
+                const infoBubble = template.content.cloneNode(true).children[0];
+                infoBubble.id = `info-${location.id}`;
+                infoBubble.querySelector('h3').textContent = location.name;
+                infoBubble.querySelector('.description').textContent = location.description;
+                document.body.appendChild(infoBubble);
+            });
+        }
+
         // 距離計算関数
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000; // 地球の半径（メートル）
+            const R = 6371000;
             const φ1 = lat1 * Math.PI/180;
             const φ2 = lat2 * Math.PI/180;
             const Δφ = (lat2-lat1) * Math.PI/180;
@@ -108,33 +148,40 @@
 
         // 位置情報の更新
         function updatePosition(position) {
-            const distance = calculateDistance(
-                position.coords.latitude,
-                position.coords.longitude,
-                TARGET.lat,
-                TARGET.lng
-            );
+            const distancesElement = document.getElementById('distances');
+            let distanceText = '';
 
-            const bearing = calculateBearing(
-                position.coords.latitude,
-                position.coords.longitude,
-                TARGET.lat,
-                TARGET.lng
-            );
+            LOCATIONS.forEach(location => {
+                const distance = calculateDistance(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    location.lat,
+                    location.lng
+                );
 
-            // 距離表示の更新
-            const distanceElement = document.getElementById('distance');
-            if (distance <= MAX_DISTANCE) {
-                distanceElement.textContent = `目的地まで約${Math.round(distance)}m`;
-                document.getElementById('info').style.display = 'block';
-            } else {
-                distanceElement.textContent = '範囲外です（1km以上離れています）';
-                document.getElementById('info').style.display = 'none';
-            }
+                const bearing = calculateBearing(
+                    position.coords.latitude,
+                    position.coords.longitude,
+                    location.lat,
+                    location.lng
+                );
 
-            // 矢印の更新
-            const arrow = document.getElementById('arrow');
-            arrow.style.transform = `rotate(${bearing - lastHeading}deg)`;
+                const infoBubble = document.getElementById(`info-${location.id}`);
+                if (distance <= MAX_DISTANCE) {
+                    distanceText += `${location.name}まで約${Math.round(distance)}m\n`;
+                    infoBubble.style.display = 'block';
+                } else {
+                    infoBubble.style.display = 'none';
+                }
+
+                // 最も近い位置への矢印を表示
+                if (location === LOCATIONS[0]) {
+                    const arrow = document.getElementById('arrow');
+                    arrow.style.transform = `rotate(${bearing - lastHeading}deg)`;
+                }
+            });
+
+            distancesElement.textContent = distanceText || '全ての地点が範囲外です（1km以上離れています）';
         }
 
         // コンパスの向きの更新
@@ -146,14 +193,18 @@
             }
         }
 
-        // 位置情報の監視開始
-        if ("geolocation" in navigator) {
-            watchId = navigator.geolocation.watchPosition(
-                updatePosition,
-                null,
-                geoOptions
-            );
-        }
+        // 初期化
+        window.addEventListener('load', () => {
+            initializeARMarkers();
+            
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    updatePosition,
+                    null,
+                    geoOptions
+                );
+            }
+        });
 
         // デバイスの向きの監視
         window.addEventListener('deviceorientation', updateHeading, true);
