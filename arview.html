@@ -289,38 +289,35 @@
             }
         }
     </style>
-       </head>
-       <body>
-           
-           <div class="ar-overlay" id="overlay"></div>
-           <div class="compass-container">
-               <div id="compass" class="compass-arrow"></div>
-           </div>
-           <div class="distance-indicator">
-               <span id="distance">読み込み中...</span>
-           </div>
-           <div class="status-container">
-               <div id="status" class="status-message">カメラを対象に向けてください</div>
-           </div>
-           <div class="no-targets" id="no-targets">
-               周辺200m以内に表示対象はありません
-           </div>
-       
-           <a-scene vr-mode-ui="enabled: false" 
-                    embedded 
-                    arjs="sourceType: webcam; 
-                          debugUIEnabled: false; 
-                          detectionMode: mono_and_matrix;
-                          sourceWidth: 1280;
-                          sourceHeight: 960;
-                          displayWidth: 1280;
-                          displayHeight: 960;">
-               <a-camera gps-camera rotation-reader></a-camera>
-               <a-entity id="places"></a-entity>
-           </a-scene>
-       
+</head>
+<body>
+    <div class="ar-overlay" id="overlay"></div>
+    <div class="compass-container">
+        <div id="compass" class="compass-arrow"></div>
+    </div>
+    <div class="distance-indicator">
+        <span id="distance">読み込み中...</span>
+    </div>
+    <div class="status-container">
+        <div id="status" class="status-message">カメラを対象に向けてください</div>
+    </div>
+    <div class="no-targets" id="no-targets">
+        周辺200m以内に表示対象はありません
+    </div>
 
-        
+    <a-scene vr-mode-ui="enabled: false" 
+             embedded 
+             arjs="sourceType: webcam; 
+                   debugUIEnabled: false; 
+                   detectionMode: mono_and_matrix;
+                   sourceWidth: 1280;
+                   sourceHeight: 960;
+                   displayWidth: 1280;
+                   displayHeight: 960;">
+        <a-camera gps-camera rotation-reader></a-camera>
+        <a-entity id="places"></a-entity>
+    </a-scene>
+
     <script>
         const LOCATIONS = [
             {
@@ -390,12 +387,61 @@
             return marker;
         }
 
+        // 新しい関数: マーカー間の重なりを検出
+        function checkOverlap(rect1, rect2) {
+            return !(rect1.right < rect2.left || 
+                    rect1.left > rect2.right || 
+                    rect1.bottom < rect2.top || 
+                    rect1.top > rect2.bottom);
+        }
+
+        // 新しい関数: マーカーの位置を調整
+        function adjustMarkerPositions(visibleMarkers) {
+            const verticalSpacing = 160; // マーカー間の最小垂直間隔
+            const screenHeight = window.innerHeight;
+            const screenWidth = window.innerWidth;
+            
+            // 表示されているマーカーを距離でソート
+            const sortedMarkers = [...visibleMarkers].sort((a, b) => {
+                const distA = parseFloat(a.querySelector('.marker-distance').textContent.replace(/[^0-9.]/g, ''));
+                const distB = parseFloat(b.querySelector('.marker-distance').textContent.replace(/[^0-9.]/g, ''));
+                return distA - distB;
+            });
+
+            // マーカーの垂直位置を調整
+            sortedMarkers.forEach((marker, index) => {
+                const rect = marker.getBoundingClientRect();
+                const baseY = screenHeight / 2;
+                let newY = baseY;
+
+                // 前のマーカーとの重なりをチェック
+                for (let i = 0; i < index; i++) {
+                    const prevMarker = sortedMarkers[i];
+                    const prevRect = prevMarker.getBoundingClientRect();
+                    
+                    if (Math.abs(rect.left - prevRect.left) < rect.width) {
+                        // 水平方向で重なりがある場合、垂直位置を調整
+                        newY = prevRect.bottom + verticalSpacing;
+                    }
+                }
+
+                // 画面外にはみ出さないように調整
+                newY = Math.min(newY, screenHeight - rect.height - 20);
+                
+                // マーカーの位置を更新
+                const currentTransform = marker.style.transform;
+                const currentX = parseFloat(currentTransform.split('translateX(')[1]) || 0;
+                marker.style.transform = `translate(${currentX}px, ${newY}px)`;
+            });
+        }
+
         function updateMarkers() {
             if (!currentPosition) return;
 
             let closestDistance = Infinity;
             let visibleCount = 0;
             let anyInRange = false;
+            const visibleMarkers = [];
 
             LOCATIONS.forEach(location => {
                 const position = calculatePosition(
@@ -421,12 +467,13 @@
                     const angleDiff = Math.abs(((position.bearing - lastHeading + 540) % 360) - 180);
                     if (angleDiff <= VIEW_ANGLE) {
                         marker.style.opacity = '1';
+                        marker.style.transform = `translate(${x}px, ${y}px)`;
+                        visibleMarkers.push(marker);
                         visibleCount++;
                     } else {
                         marker.style.opacity = '0';
                     }
                     
-                    marker.style.transform = `translate(${x}px, ${y}px)`;
                     marker.querySelector('.marker-distance').textContent = 
                         `約${Math.round(position.distance)}m`;
 
@@ -437,6 +484,11 @@
                     marker.style.opacity = '0';
                 }
             });
+
+            // 表示されているマーカーの位置を調整
+            if (visibleMarkers.length > 0) {
+                adjustMarkerPositions(visibleMarkers);
+            }
 
             document.getElementById('distance').textContent = 
                 closestDistance !== Infinity ? `最も近い地点まで: ${Math.round(closestDistance)}m` : '付近に地点なし';
